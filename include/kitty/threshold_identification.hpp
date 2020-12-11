@@ -33,11 +33,12 @@
 #pragma once
 
 #include <vector>
-// #include <lpsolve/lp_lib.h> /* uncomment this line to include lp_solve */
+#include <lpsolve/lp_lib.h> /* uncomment this line to include lp_solve */
 #include "traits.hpp"
 
 namespace kitty
 {
+
 
 /*! \brief Threshold logic function identification
 
@@ -60,9 +61,28 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
 {
   std::vector<int64_t> linear_form;
 
-  /* TODO */
-  /* if tt is non-TF: */
-  return false;
+  /*Check unateness of all variables*/
+  auto numvars = tt.num_vars();
+
+  std::vector<int32_t> neg_unate_vars;
+
+  //Loop through all variables checking unatness and 
+  for ( int32_t i = 0; i < numvars; i++ )
+  {
+    Unateness un;
+    un = is_unate( tt, i );
+    //If the function is binate on any variable --> Non-TF
+    if ( un == BINATE )
+    {
+      return false;
+    }
+    else if ( un == NEGATIVE )
+    {
+      neg_unate_vars.push_back( i );
+    }
+  
+  }
+  
 
   /* if tt is TF: */
   /* push the weight and threshold values into `linear_form` */
@@ -71,6 +91,52 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
     *plf = linear_form;
   }
   return true;
+}
+
+enum Unateness
+{
+  NEGATIVE = 0,
+  POSITIVE = 1,
+  BINATE = 2
+};
+
+template<typename TT, typename = std::enable_if_t<is_complete_truth_table<TT>::value>>
+//Check if truth table tt is unate on variable var
+Unateness is_unate( const TT& tt, uint32_t var)
+{
+  auto numvars = tt.num_vars();
+  auto const tt1 = cofactor0( tt, var );
+  auto const tt2 = cofactor1( tt, var );
+
+  uint32_t table_size = (2 << ( numvars - 1 ));
+  vector<int> pos_un_vec( table_szie, 0 ); 
+  vector<int> neg_un_vec( table_szie, 0 ); 
+
+  for ( auto bit = 0; bit < table_size ; bit++ )
+  {
+    if ( get_bit( tt1, bit ) <= get_bit( tt2, bit ) )
+    {
+      pos_un_vec.at( bit ) = 1;
+    }
+    else if ( get_bit( tt2, bit ) <= get_bit( tt1, bit ) )
+    {
+      neg_un_vec.at( bit ) = 1;
+    }
+  }
+
+  if ( std::all_of( pos_un_vec.begin(), pos_un_vec.end(), []( int i ) { return i == 1; } ) )
+  {
+    return POSITIVE;
+  
+  }
+  else if ( std::all_of( neg_un_vec.begin(), neg_un_vec.end(), []( int i ) { return i == 1; } ) )
+  {
+    return NEGATIVE;
+  }
+  else
+  {
+    return BINATE;
+  }
 }
 
 } /* namespace kitty */
