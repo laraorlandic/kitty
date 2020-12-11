@@ -33,6 +33,7 @@
 #pragma once
 
 #include <vector>
+#include <algorithm> 
 #include <lpsolve/lp_lib.h> /* uncomment this line to include lp_solve */
 #include "traits.hpp"
 
@@ -64,10 +65,12 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
   /*Check unateness of all variables*/
   auto numvars = tt.num_vars();
 
-  std::vector<int32_t> neg_unate_vars;
+  std::vector<uint8_t> neg_unate_vars;
+
+
 
   //Loop through all variables checking unatness and 
-  for ( int32_t i = 0; i < numvars; i++ )
+  for ( uint8_t i = 0; i < numvars; i++ )
   {
     Unateness un;
     un = is_unate( tt, i );
@@ -102,37 +105,42 @@ enum Unateness
 
 template<typename TT, typename = std::enable_if_t<is_complete_truth_table<TT>::value>>
 //Check if truth table tt is unate on variable var
-Unateness is_unate( const TT& tt, uint32_t var)
+Unateness is_unate( const TT& tt, uint8_t var)
 {
   auto numvars = tt.num_vars();
   auto const tt1 = cofactor0( tt, var );
   auto const tt2 = cofactor1( tt, var );
 
-  uint32_t table_size = (2 << ( numvars - 1 ));
-  vector<int> pos_un_vec( table_szie, 0 ); 
-  vector<int> neg_un_vec( table_szie, 0 ); 
+  uint8_t table_size = (2 << ( numvars - 1 ));
+  std::vector<int> pos_un_vec( table_size, 0 ); 
+  std::vector<int> neg_un_vec( table_size, 0 ); 
 
   for ( auto bit = 0; bit < table_size ; bit++ )
   {
+    //Is negative cofactor contained in positive cofactor?
     if ( get_bit( tt1, bit ) <= get_bit( tt2, bit ) )
     {
       pos_un_vec.at( bit ) = 1;
     }
+    //Is positive cofactor contained in negative cofactor?
     else if ( get_bit( tt2, bit ) <= get_bit( tt1, bit ) )
     {
       neg_un_vec.at( bit ) = 1;
     }
   }
 
+  //If all negative cofactors are contained in the positive cofactor --> Positive Unate
   if ( std::all_of( pos_un_vec.begin(), pos_un_vec.end(), []( int i ) { return i == 1; } ) )
   {
     return POSITIVE;
   
   }
+  //If all positive cofactors are contained in the negative cofactor --> Negative Unate
   else if ( std::all_of( neg_un_vec.begin(), neg_un_vec.end(), []( int i ) { return i == 1; } ) )
   {
     return NEGATIVE;
   }
+  //Else: binate
   else
   {
     return BINATE;
