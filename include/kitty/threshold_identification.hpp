@@ -36,6 +36,8 @@
 #include <algorithm> 
 #include <lpsolve/lp_lib.h> /* uncomment this line to include lp_solve */
 #include "traits.hpp"
+#include "bit_operations.hpp"
+#include "implicant.hpp"
 
 namespace kitty
 {
@@ -86,6 +88,117 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
   
   }
   
+
+  // Make sure f is unate by substituting x with x'
+  TT f_star;
+  f_star = tt;
+  
+  for ( auto i : neg_unate_vars )
+  {
+      flip_bit( f_star, (uint64_t)i );
+  }
+  
+  //const TT f_star_final = f_star;
+
+  //Get prime implicants of on set
+  std::vector<cube> prime_implicants_on_set;
+  prime_implicants_on_set = get_prime_implicants_morreale( f_star );
+
+  //Get prime implicants of off set
+  std::vector<cube> prime_implicants_off_set;
+  prime_implicants_off_set = get_prime_implicants_morreale( unary_not( f_star ) );
+
+  //Set up ILP
+  int n_vars_ILP = numvars + 1; //# of vars to solve for = number of literals + 1 for T
+  lprec* lp;
+  int row_counter = 0;
+  int col_counter = 0;
+  lp = make_lp( 0, n_vars_ILP ); //initialize model
+
+  //Initial constraints: w_1, w_2 ... w_n, T >= 0
+  for ( uint8_t i = 0; i < n_vars_ILP; i++ )
+  {
+    double* row = new double[n_vars_ILP];
+    for ( int j = 0; j < n_vars_ILP; j++ )
+    {
+      row[j] = 0;
+    }
+    row[i] = 1;
+    add_constraint( lp, row, GE, 0 );
+  }
+
+  //Add ILP rows for on set
+  //For each variable xi in cube C, add constraint sum(w_i) - T >= 0
+  set_add_rowmode( lp, TRUE );
+  for ( int c = 0; c < prime_implicants_on_set.size(); c++ )
+  {
+    double* row = new double[n_vars_ILP];
+    cube C = prime_implicants_on_set.at( c );
+    for ( uint8_t i = 0; i < numvars; i++ )
+    {
+      //Find whether a variable is part of a cube or not
+      bool cube_mask = C.get_mask(i);
+      bool polarity = C.get_bit( i );
+      if ( cube_mask & polarity)
+      {
+        row[i] = 1; //variable xi is part of cube C
+      }
+      else
+      {
+        row[i] = 0; //variable xi is not part of cube C
+      }
+    }
+    row[n_vars_ILP - 1] = -1; //constant of T variable is -1
+    add_constraint( lp, row, GE, 0 );
+  }
+
+  //Add ILP rows for off set
+  //For each variable xi' not in cube C, add constraint sum(w_i) - T <= -1
+  set_add_rowmode( lp, TRUE );
+  for ( int c = 0; c < prime_implicants_off_set.size(); c++ )
+  {
+    double* row = new double[n_vars_ILP];
+    cube C = prime_implicants_off_set.at( c );
+    for ( uint8_t i = 0; i < numvars; i++ )
+    {
+      //Find whether a variable is part of a cube or not
+      bool cube_mask = C.get_mask( i );
+      bool polarity = C.get_bit( i );
+      if ( (cube_mask) & (!polarity)  )
+      {
+        row[i] = 0; //variable xi' is part of cube C
+      }
+      else
+      {
+        row[i] = 1; //variable xi' is not part of cube C
+      }
+    }
+    row[n_vars_ILP - 1] = -1; //constant of T variable is -1
+    add_constraint( lp, row, LE, -1 );
+  }
+
+  //Construct ILP objective: minumum of w_1 + w_2 + ... w_n + T
+  set_add_rowmode( lp, FALSE );
+  double* row = new double[n_vars_ILP];
+  for ( int i = 0; i < n_vars_ILP; i++ )
+  {
+    row[i] = 1;
+  }
+  set_obj_fn( lp, row );
+  set_minim( lp );
+
+  //Solve LP
+  int result = solve( lp );
+  //Unable to solve model --> not TF
+  if ( result != 0 )
+  {
+    return false;
+  }
+  get_variables( lp, row );
+  for ( int i = 0; i < n_vars_ILP; i++ )
+  {
+    linear_form.push_back( (int64_t)row[i] );
+  }
 
   /* if tt is TF: */
   /* push the weight and threshold values into `linear_form` */
