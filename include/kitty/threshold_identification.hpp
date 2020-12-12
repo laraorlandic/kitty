@@ -35,9 +35,11 @@
 #include <vector>
 #include <algorithm> 
 #include <iostream>
+#include <fstream>
 #include <lpsolve/lp_lib.h> /* uncomment this line to include lp_solve */
 #include "traits.hpp"
 #include "bit_operations.hpp"
+#include "operations.hpp"
 #include "implicant.hpp"
 #include "print.hpp"
 
@@ -94,14 +96,11 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
   // Make sure f is unate by substituting x with x'
   TT f_star;
   f_star = tt;
-
-
   
   for ( auto i : neg_unate_vars )
   {
-      flip_bit( f_star, (uint64_t)i );
+    f_star = flip( f_star, i );
   }
-  
 
   //Get prime implicants of on set
   std::vector<cube> prime_implicants_on_set;
@@ -130,8 +129,6 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
     add_constraint( lp, row, GE, 0 );
   }
 
-  write_lp( lp, "model_1.lp" );
-
   //Add ILP rows for on set
   //For each variable xi in cube C, add constraint sum(w_i) - T >= 0
   set_add_rowmode( lp, TRUE );
@@ -156,8 +153,6 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
     row[n_vars_ILP] = -1.0; //constant of T variable is -1
     add_constraint( lp, row, GE, 0 );
   }
-
-  write_lp( lp, "model_2.lp" );
 
   //Add ILP rows for off set
   //For each variable xi' not in cube C, add constraint sum(w_i) - T <= -1
@@ -194,7 +189,6 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
   set_obj_fn( lp, row );
   set_minim( lp );
 
-  write_lp( lp, "model.lp" );
 
   //Solve LP
   int result = solve( lp );
