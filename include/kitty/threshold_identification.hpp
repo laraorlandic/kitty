@@ -43,6 +43,12 @@
 namespace kitty
 {
 
+enum Unateness
+{
+  NEGATIVE = 0,
+  POSITIVE = 1,
+  BINATE = 2
+};
 
 /*! \brief Threshold logic function identification
 
@@ -211,13 +217,6 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
   }
   return true;
 }
-
-enum Unateness
-{
-  NEGATIVE = 0,
-  POSITIVE = 1,
-  BINATE = 2
-};
 
 template<typename TT, typename = std::enable_if_t<is_complete_truth_table<TT>::value>>
 //Check if truth table tt is unate on variable var
