@@ -34,14 +34,11 @@
 
 #include <vector>
 #include <algorithm> 
-#include <iostream>
-#include <fstream>
 #include <lpsolve/lp_lib.h> /* uncomment this line to include lp_solve */
 #include "traits.hpp"
 #include "bit_operations.hpp"
 #include "operations.hpp"
 #include "implicant.hpp"
-#include "print.hpp"
 
 namespace kitty
 {
@@ -70,10 +67,7 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
 
   /*Check unateness of all variables*/
   auto numvars = tt.num_vars();
-
-  std::vector<uint8_t> neg_unate_vars;
-
-
+  std::vector<uint8_t> neg_unate_vars; //vector of variables that are negative unate
 
   //Loop through all variables checking unatness and 
   for ( uint8_t i = 0; i < numvars; i++ )
@@ -89,14 +83,11 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
     {
       neg_unate_vars.push_back( i );
     }
-  
   }
-  
 
   // Make sure f is unate by substituting x with x'
   TT f_star;
   f_star = tt;
-  
   for ( auto i : neg_unate_vars )
   {
     f_star = flip( f_star, i );
@@ -198,6 +189,8 @@ bool is_threshold( const TT& tt, std::vector<int64_t>* plf = nullptr )
     return false;
   }
   get_variables( lp, row );
+
+  //Write weights to linear_form vector
   for ( int i = 0; i < n_vars_ILP; i++ )
   {
     linear_form.push_back( (int64_t)row[i] );
